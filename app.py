@@ -15,7 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from schemas.response import ValorSchema, TotalSchema
 
 # Informações da API
-info = Info(title="Loja de Roupas API", version="1.0.0", description="API para gerenciar produtos, estoque e vendas.")
+info = Info(title="VestSoft  API", version="1.0.0", description="API para gerenciar produtos, estoque e vendas.")
 app = OpenAPI(__name__, info=info)
 CORS(app)
 
@@ -39,6 +39,25 @@ def criar_produto(body: ProdutoSchema):
 
     # Reutilizando apresenta_produtos para retornar o produto criado
     return {"produto": apresenta_produtos([produto])[0]}, 201
+
+@app.get('/produto', tags=[produto_tag],
+         responses={"200": ProdutoSchema, "404": ErrorSchema})
+def get_produto(query: ProdutoBuscaPorIDSchema):
+    """Faz a busca por um Produto a partir do id do produto
+
+    Retorna uma representação dos produtos e comentários associados.
+    """
+    produto_id = query.id
+    # fazendo a busca
+    produto = db.session.query(Produto).filter(Produto.id == produto_id).first()
+
+    if not produto:
+        # se o produto não foi encontrado
+        error_msg = "Produto não encontrado na base :/"
+        return {"mesage": error_msg}, 404
+    else:
+        # retorna a representação de produto
+        return ProdutoSchema.from_orm(produto).dict(), 200
 
 
 @app.get('/produtos', tags=[produto_tag],
