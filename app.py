@@ -250,11 +250,6 @@ def criar_venda(body: VendaSchema):
     Returns:
         dict: Mensagem de sucesso com as vendas registradas ou erro.
     """
-
-        # Exibindo o conteúdo do body no console
-    print("Body recebido:")
-    print(body.json(indent=2))  # Converte para JSON com indentação para legibilidade
-
     session = db.session
 
     vendas_registradas = []

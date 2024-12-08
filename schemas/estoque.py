@@ -13,7 +13,7 @@ class EstoqueSchema(BaseModel):
         orm_mode = True
 
 class ListagemEstoquesSchema(BaseModel):
-    produtos: List[EstoqueSchema]   
+    estoques: List[EstoqueSchema]   
 
 class EstoqueBuscaPorIDSchema(BaseModel):
     id: int     
