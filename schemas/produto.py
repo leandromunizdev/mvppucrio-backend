@@ -16,3 +16,8 @@ class ListagemProdutosSchema(BaseModel):
 
 class ProdutoBuscaPorIDSchema(BaseModel):
     id: int
+
+class ProdutoCriarSchema(BaseModel):
+    nome: str
+    descricao: str
+    preco: float    

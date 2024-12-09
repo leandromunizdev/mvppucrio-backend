@@ -7,7 +7,7 @@ from models.produto import Produto
 from models.estoque import Estoque
 from models.venda import Venda
 from schemas.mensagem import MensagemSchema
-from schemas.produto import ListagemProdutosSchema, ProdutoBuscaPorIDSchema, ProdutoSchema
+from schemas.produto import ListagemProdutosSchema, ProdutoBuscaPorIDSchema, ProdutoCriarSchema, ProdutoSchema
 from schemas.estoque import EstoqueBuscaPorIDSchema, EstoqueSchema, ListagemEstoquesSchema
 from schemas.venda import VendaSchema
 from schemas.error import ErrorSchema
@@ -31,7 +31,7 @@ venda_tag = Tag(name="Venda", description="Endpoints para gerenciar vendas.")
 
 # Endpoints
 @app.post("/produtos", tags=[produto_tag], responses={"201": ProdutoSchema})
-def criar_produto(body: ProdutoSchema):
+def criar_produto(body: ProdutoCriarSchema):
     """Cria um novo produto."""
     produto = Produto(**body.dict())
     db.session.add(produto)
