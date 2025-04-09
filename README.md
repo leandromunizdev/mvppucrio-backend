@@ -11,6 +11,10 @@ Uma API desenvolvida em Python que gerencia o cadastramento de produtos, control
 - **Registro de Vendas:** Processa e armazena informações das vendas realizadas.
 - **Documentação Integrada:** Acessível via OpenAPI para consulta e testes.
 
+## Diagrama da solução
+
+![Diagrama de Arquitetura](diagrama-arquitetura.png)
+
 ## Pré-requisitos
 
 - **Python 3.x** instalado.

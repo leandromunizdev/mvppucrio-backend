@@ -276,13 +276,29 @@ def criar_venda(body: VendaSchema):
         data_criacao = datetime.utcnow()
         for item in body.itens:
             # Criar uma venda para cada item
-            venda = Venda(
-                codigo=body.codigo,
-                data=data_criacao,
-                produto_id= item.produto_id,
-                quantidade= item.quantidade,
-                preco= item.preco 
-            )
+            if body.frete:
+                venda = Venda(
+                    codigo=body.codigo,
+                    data=data_criacao,
+                    produto_id=item.produto_id,
+                    quantidade=item.quantidade,
+                    preco=item.preco,
+                    frete_cep=body.frete.cep,
+                    frete_logradouro=body.frete.logradouro,
+                    frete_numero=body.frete.numero,
+                    frete_complemento=body.frete.complemento,
+                    frete_bairro=body.frete.bairro,
+                    frete_cidade=body.frete.cidade,
+                    frete_uf=body.frete.uf
+                )
+            else:
+                venda = Venda(
+                    codigo=body.codigo,
+                    data=data_criacao,
+                    produto_id=item.produto_id,
+                    quantidade=item.quantidade,
+                    preco=item.preco
+                )
             session.add(venda)
             vendas_registradas.append(venda)
 
