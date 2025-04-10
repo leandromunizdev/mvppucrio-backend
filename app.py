@@ -1,11 +1,15 @@
+import logging
+import traceback
 from datetime import datetime
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_openapi3 import OpenAPI, Info, Tag
 from database import db, init_db
+from models.pagamento import Pagamento
 from models.produto import Produto
 from models.estoque import Estoque
 from models.venda import Venda
+from models.vendaItem import VendaItem
 from schemas.mensagem import MensagemSchema
 from schemas.produto import ListagemProdutosSchema, ProdutoBuscaPorIDSchema, ProdutoCriarSchema, ProdutoSchema
 from schemas.estoque import EstoqueBuscaPorIDSchema, EstoqueSchema, ListagemEstoquesSchema
@@ -13,6 +17,16 @@ from schemas.venda import VendaSchema
 from schemas.error import ErrorSchema
 from sqlalchemy.exc import SQLAlchemyError
 from schemas.response import ValorSchema, TotalSchema
+from flask_migrate import Migrate
+import os
+from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.DEBUG)  
+logger = logging.getLogger(__name__)
+
+load_dotenv()  # Carrega as variáveis de ambiente do arquivo .env
+
+database_url = os.getenv("DATABASE_URL")
 
 # Informações da API
 info = Info(title="VestSoft  API", version="1.0.0", description="API para gerenciar produtos, estoque e vendas.")
@@ -20,9 +34,13 @@ app = OpenAPI(__name__, info=info)
 CORS(app)
 
 # Configurações do banco de dados
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///' + os.path.join(basedir, 'database.db')
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
+
+# Inicializa o Flask-Migrate com a aplicação e o banco de dados
+migrate = Migrate(app, db)
 
 # Tags para categorização dos endpoints
 produto_tag = Tag(name="Produto", description="Endpoints para gerenciar produtos.")
@@ -85,8 +103,8 @@ def get_produtos():
 
         # Calcula o total de saídas (vendas)
         total_vendas = session.query(
-            db.func.sum(Venda.quantidade)
-        ).filter(Venda.produto_id == produto.id).scalar() or 0
+            db.func.sum(VendaItem.quantidade)
+        ).filter(VendaItem.produto_id == produto.id).scalar() or 0
 
         # Saldo = total_estoque - total_vendas
         saldo = total_estoque - total_vendas
@@ -261,57 +279,68 @@ def deletar_estoque(query: EstoqueBuscaPorIDSchema):
 @app.post("/vendas", tags=[venda_tag], responses={"201": VendaSchema, "400": ErrorSchema})
 def criar_venda(body: VendaSchema):
     """
-    Registra uma nova venda para cada item fornecido.
+    Registra uma nova venda e seus itens, além dos pagamentos, se houver.
 
     Args:
-        body (VendaSchema): Dados da venda, incluindo itens.
+        body (VendaSchema): Dados da venda, incluindo itens, frete e pagamentos.
 
     Returns:
-        dict: Mensagem de sucesso com as vendas registradas ou erro.
+        dict: Dados da venda registrada ou mensagem de erro.
     """
     session = db.session
-
-    vendas_registradas = []
     try:
         data_criacao = datetime.utcnow()
+        
+        # Cria o cabeçalho da venda (não incluem dados específicos de item)
+        venda = Venda(
+            codigo=body.codigo,
+            data=data_criacao,
+            frete_cep=body.frete.cep if body.frete else None,
+            frete_logradouro=body.frete.logradouro if body.frete else None,
+            frete_numero=body.frete.numero if body.frete else None,
+            frete_complemento=body.frete.complemento if body.frete else None,
+            frete_bairro=body.frete.bairro if body.frete else None,
+            frete_cidade=body.frete.cidade if body.frete else None,
+            frete_uf=body.frete.uf if body.frete else None,
+        )
+        session.add(venda)
+        session.flush()  # Gera venda.id para os itens associados
+        
+        # Cria os itens da venda na tabela VendaItem
         for item in body.itens:
-            # Criar uma venda para cada item
-            if body.frete:
-                venda = Venda(
-                    codigo=body.codigo,
-                    data=data_criacao,
-                    produto_id=item.produto_id,
-                    quantidade=item.quantidade,
-                    preco=item.preco,
-                    frete_cep=body.frete.cep,
-                    frete_logradouro=body.frete.logradouro,
-                    frete_numero=body.frete.numero,
-                    frete_complemento=body.frete.complemento,
-                    frete_bairro=body.frete.bairro,
-                    frete_cidade=body.frete.cidade,
-                    frete_uf=body.frete.uf
+            venda_item = VendaItem(
+                venda_id=venda.id,
+                produto_id=item.produto_id,
+                quantidade=item.quantidade,
+                preco=item.preco
+            )
+            session.add(venda_item)
+        
+        # Registra os pagamentos, se houver (mantém a lógica atual)
+        pagamentos_registrados = []
+        if body.pagamentos:
+            for pagamento in body.pagamentos:
+                novo_pagamento = Pagamento(
+                    codigo_venda=body.codigo,  # Opcionalmente, você pode utilizar venda.id
+                    forma=pagamento.forma,
+                    valor=pagamento.valor
                 )
-            else:
-                venda = Venda(
-                    codigo=body.codigo,
-                    data=data_criacao,
-                    produto_id=item.produto_id,
-                    quantidade=item.quantidade,
-                    preco=item.preco
-                )
-            session.add(venda)
-            vendas_registradas.append(venda)
-
-        # Salvar todos os registros no banco de dados
+                session.add(novo_pagamento)
+                pagamentos_registrados.append(novo_pagamento)
+        
         session.commit()
 
-        # Retornar todas as vendas registradas
-        return jsonify([VendaSchema.from_orm(venda).dict() for venda in vendas_registradas]), 201
+        # Prepara o resultado: utilize os schemas se desejar retornar os dados
+        resultado = {
+            "venda": VendaSchema.from_orm(venda).dict(),
+            "pagamentos": [{"forma": p.forma, "valor": p.valor} for p in pagamentos_registrados]
+        }
+        return jsonify(resultado), 201
 
     except SQLAlchemyError as e:
-        # Fazer rollback em caso de erro
         session.rollback()
-        return {"message": f"Erro ao registrar as vendas: {str(e)}"}, 400
+        logger.exception("Erro ao registrar a venda:")
+        return {"message": f"Erro ao registrar a venda: {str(e)}"}, 400
 
 # Totalizadores para a tela de início    
 @app.get('/vendas/total', tags=[venda_tag], responses={"200": ValorSchema})
@@ -322,7 +351,7 @@ def get_valor_total_vendas():
     session = db.session
     # Calcula o valor total em vendas usando o preço na tabela Venda
     total_vendas = session.query(
-        db.func.sum(Venda.quantidade * Venda.preco)
+        db.func.sum(VendaItem.quantidade * VendaItem.preco)
     ).scalar() or 0.0
 
     return ValorSchema(valor=total_vendas).dict(), 200
@@ -353,7 +382,7 @@ def get_total_estoque():
 
     # Soma o total de itens vendidos
     total_vendido = session.query(
-        db.func.sum(Venda.quantidade)
+        db.func.sum(VendaItem.quantidade)
     ).scalar() or 0
 
     # Calcula o estoque disponível

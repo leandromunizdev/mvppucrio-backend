@@ -79,7 +79,7 @@ Para configurar o ambiente de desenvolvimento e instalar as dependências do pro
 
 3. A documentação interativa (OpenAPI/Swagger) da API está disponível na seguinte URL:
    ```
-   http://localhost:<PORTA>/openapi
+   http://localhost:<PORTA>/openapi/swagger
    ```
    Utilize essa interface para testar e explorar os endpoints oferecidos pela aplicação.
 
@@ -125,7 +125,7 @@ Para configurar o ambiente de desenvolvimento e instalar as dependências do pro
 
 3. A documentação interativa (OpenAPI/Swagger) da API está disponível na seguinte URL:
    ```
-   http://localhost:<PORTA>/openapi
+   http://localhost:<PORTA>/openapi/swagger
    ```
    Utilize essa interface para testar e explorar os endpoints oferecidos pela aplicação.
 
